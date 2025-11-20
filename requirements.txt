@@ -1,0 +1,14 @@
+# Core environment
+gymnasium==0.29.1
+numpy==2.1.2
+
+# Reinforcement learning
+stable-baselines3==2.3.0
+torch==2.3.1
+tensorboard==2.17.1
+
+# visual rendering
+matplotlib==3.9.0
+
+# For MCTS & utilities
+tqdm==4.66.4
