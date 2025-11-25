@@ -2,19 +2,17 @@ import numpy as np
 
 # Utility Functions
 def get_valid_moves(board):
-    """Return all columns where a piece can still be dropped."""
     return [c for c in range(board.shape[1]) if board[0][c] == 0]
 
 
 def drop_piece(board, col, player):
-    """Simulates dropping a piece. Returns a *new* board."""
     new_board = board.copy()
     rows = board.shape[0]
     for r in reversed(range(rows)):
         if new_board[r][col] == 0:
             new_board[r][col] = player
             return new_board
-    return new_board  # should never happen if checked beforehand
+    return new_board
 
 
 # Heuristic function
@@ -67,7 +65,6 @@ def evaluate_position(board, player):
 
 
 def check_win(board, player, env):
-    """Use env's own logic for win detection."""
     saved = env.board
     env.board = board
     result = env._check_win(player)
@@ -109,9 +106,10 @@ def minimax(board, depth, alpha, beta, player, env):
             best_score = score
             best_move = move
 
+        # pruning
         alpha = max(alpha, score)
         if alpha >= beta:
-            break  # prune
+            break
 
     return best_score, best_move
 
