@@ -81,6 +81,10 @@ class Connect4Env(gym.Env):
                     return True
 
         return False
+    
+    # get valid moves at the current state
+    def get_valid_moves(self):
+        return [c for c in range(self.cols) if self.board[0][c] == 0]
 
 # Example usage
 if __name__ == "__main__":
