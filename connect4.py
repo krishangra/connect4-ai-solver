@@ -6,16 +6,17 @@ import pygame
 class Connect4Env(gym.Env):
     """Gymnasium-compatible Connect 4 environment."""
 
-    def __init__(self, render=False, wait_time=250):
+    def __init__(self, render=False, wait_time=250, game_mode='ai'):
         super().__init__()
+        self.render_mode = render
+        self.wait_time = wait_time
+        self.game_mode = game_mode
 
         self.BLUE = (0, 0, 255)
         self.BLACK = (0, 0, 0)
         self.RED = (255, 0, 0)
         self.YELLOW = (255, 255, 0)
 
-        self.render_mode = render
-        self.wait_time = wait_time
         self.pygame_initialized = False
         self.rows = 6
         self.cols = 7
@@ -54,7 +55,6 @@ class Connect4Env(gym.Env):
         return new_board
 
     def step(self, action):
-
         # Invalid column or full column
         if action not in self.get_valid_moves():
             if self.render_mode:
@@ -114,6 +114,27 @@ class Connect4Env(gym.Env):
                     return True
 
         return False
+    
+
+    def get_human_move(self):
+        """Wait for the human to click a column. Returns column index."""
+        if not self.render_mode:
+            raise RuntimeError("Human play requires render_mode=True")
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    raise SystemExit
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    x = event.pos[0]
+                    col = x // self.square_size
+                    # If the move is valid, return it
+                    if col in self.get_valid_moves():
+                        return col
+                    else:
+                        print("Invalid column. Try again.")
     
 
     def render(self):

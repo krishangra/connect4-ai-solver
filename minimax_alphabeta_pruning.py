@@ -103,25 +103,76 @@ def _win_on_board(board, player, env):
     return result
 
 
-# Choose move entry point
+# Immediate win or block check
+def immediate_win_or_block(board, player, env):
+    valid_moves = env.get_valid_moves(board)
+
+    # Check if current player can win immediately
+    for move in valid_moves:
+        new_board = env.drop_piece(board, move, player)
+        if _win_on_board(new_board, player, env):
+            return move
+
+    # Check if opponent can win next move; block them
+    opponent = -player
+    for move in valid_moves:
+        new_board = env.drop_piece(board, move, opponent)
+        if _win_on_board(new_board, opponent, env):
+            return move
+
+    # No immediate win or block
+    return None
+
+
+# Updated choose_best_move with immediate win/block logic
 def choose_best_move(env, depth=5):
     board = env.board.copy()
     player = env.current_player
-    score, move = minimax(board, depth, -float("inf"), float("inf"), player, env)
+
+    # First check immediate win or block
+    move = immediate_win_or_block(board, player, env)
+    if move is not None:
+        return move
+
+    # Otherwise, use depth-limited minimax
+    _, move = minimax(board, depth, -float("inf"), float("inf"), player, env)
     return move
 
 
-env = Connect4Env(render=True, wait_time=500)
-state, info = env.reset()
-env.render()
 
-while True:
-    action = choose_best_move(env, depth=5)
-    print("AI chooses:", action)
+if __name__ == "__main__":
+    env = Connect4Env(render=True, wait_time=500)
+    state, info = env.reset()
+    env.render()
 
-    state, reward, terminated, truncated, info = env.step(action)
-    print(state)
+    total_reward = {1: 0.0, -1: 0.0}
+    total_steps = {1: 0, -1: 0}
+    moves = [] 
 
-    if terminated:
-        print("Game over:", info)
-        break
+    while True:
+        mover = env.current_player
+        action = choose_best_move(env, depth=5)
+        print(f"Player {mover} chooses:", action)
+
+        state, reward, terminated, truncated, info = env.step(action)
+
+        # accumulate
+        total_reward[mover] += float(reward)
+        total_steps[mover] += 1
+        moves.append((mover, action, float(reward)))
+
+        env.render()
+        print(state)
+
+        if terminated or truncated:
+            print("Game over:", info)
+            break
+
+    # summary
+    def avg(r, n):
+        return (r / n) if n > 0 else 0.0
+
+    print("\n=== GAME METRICS ===")
+    print(f"Total moves: {total_steps[1] + total_steps[-1]}")
+    print(f"Player 1 -> Steps: {total_steps[1]}\nPlayer 2 -> Steps: {total_steps[-1]}")
+
