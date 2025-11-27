@@ -36,36 +36,47 @@ class Connect4Env(gym.Env):
         if self.render_mode:
             self.render()
         return self.board.copy(), {}
+    
+    # get valid moves at the current state
+    def get_valid_moves(self):
+        return [c for c in range(self.cols) if self.board[0][c] == 0]
+
+
+    def drop_piece(self, board, col, player):
+        new_board = board.copy()
+        for r in range(self.rows - 1, -1, -1):
+            if new_board[r][col] == 0:
+                new_board[r][col] = player
+                return new_board
+        return new_board
 
     def step(self, action):
-        # Validate action
-        if action < 0 or action >= self.cols or self.board[0][action] != 0:
+
+        # Invalid column or full column
+        if action not in self.get_valid_moves():
             if self.render_mode:
                 self.render()
-            # Illegal move → negative reward + terminate episode
             return self.board.copy(), -10.0, True, False, {"illegal_move": True}
 
-        # Drop piece in column
-        for r in reversed(range(self.rows)):
-            if self.board[r][action] == 0:
-                self.board[r][action] = self.current_player
-                break
+        # Apply move
+        self.board = self.drop_piece(self.board, action, self.current_player)
 
-        # Check win
+        # Win check
         if self._check_win(self.current_player):
             if self.render_mode:
                 self.render()
             return self.board.copy(), 1.0, True, False, {"winner": self.current_player}
 
-        # Check draw
-        if not (self.board == 0).any():
+        # Draw check
+        if len(self.get_valid_moves()) == 0:
             if self.render_mode:
                 self.render()
             return self.board.copy(), 0.0, True, False, {"draw": True}
 
-        # Switch player (but we don't simulate opponent moves here)
+        # Switch player turn
         self.current_player *= -1
 
+        # Render
         if self.render_mode:
             self.render()
 
@@ -100,10 +111,6 @@ class Connect4Env(gym.Env):
                     return True
 
         return False
-    
-    # get valid moves at the current state
-    def get_valid_moves(self):
-        return [c for c in range(self.cols) if self.board[0][c] == 0]
     
 
     def render(self):

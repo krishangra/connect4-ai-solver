@@ -1,4 +1,6 @@
 import numpy as np
+import gymnasium as gym
+from connect4 import Connect4Env
 
 # Utility Functions
 def get_valid_moves(board):
@@ -119,10 +121,6 @@ def choose_best_move(env, depth=5):
     player = env.current_player
     score, move = minimax(board, depth, -float("inf"), float("inf"), player, env)
     return move
-
-
-import gymnasium as gym
-from connect4 import Connect4Env
 
 
 env = Connect4Env()
