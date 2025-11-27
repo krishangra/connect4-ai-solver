@@ -2,29 +2,16 @@ import numpy as np
 import gymnasium as gym
 from connect4 import Connect4Env
 
-# Utility Functions
-def get_valid_moves(board):
-    return [c for c in range(board.shape[1]) if board[0][c] == 0]
 
-
-def drop_piece(board, col, player):
-    new_board = board.copy()
-    rows = board.shape[0]
-    for r in reversed(range(rows)):
-        if new_board[r][col] == 0:
-            new_board[r][col] = player
-            return new_board
-    return new_board
-
-
-# Heuristic function
+# Heuristic evaluation function
 def evaluate_position(board, player):
     """
-    Simple evaluation:
+    Simple evaluation scoring:
       +5 for each open 3-in-a-row,
       +2 for open 2-in-a-row,
-      and the opposite for opponent.
+      and symmetric negative values for opponent.
     """
+
     def score_line(line):
         score = 0
         if np.count_nonzero(line == player) == 3 and np.count_nonzero(line == 0) == 1:
@@ -43,22 +30,22 @@ def evaluate_position(board, player):
     rows, cols = board.shape
     total = 0
 
-    # horizontal
+    # Horizontal
     for r in range(rows):
         for c in range(cols - 3):
             total += score_line(board[r, c:c+4])
 
-    # vertical
+    # Vertical
     for r in range(rows - 3):
         for c in range(cols):
             total += score_line(board[r:r+4, c])
 
-    # diag down-right
+    # Diagonal down-right
     for r in range(rows - 3):
         for c in range(cols - 3):
             total += score_line(np.array([board[r+i][c+i] for i in range(4)]))
 
-    # diag up-right
+    # Diagonal up-right
     for r in range(3, rows):
         for c in range(cols - 3):
             total += score_line(np.array([board[r-i][c+i] for i in range(4)]))
@@ -66,41 +53,33 @@ def evaluate_position(board, player):
     return total
 
 
-def check_win(board, player, env):
-    saved = env.board
-    env.board = board
-    result = env._check_win(player)
-    env.board = saved
-    return result
-
-
-# Minimax algorithm with alpha-beta pruning
+# Minimax (Negamax) with Alpha-Beta Pruning
 def minimax(board, depth, alpha, beta, player, env):
     """
-    Negamax minimax with alpha-beta pruning.
-    player =  1 or -1  (current player to move)
-    Returns: (score, chosen_move)
+    Negamax minimax.
+    player = 1 or -1
+    Returns (score, best_move)
     """
 
-    valid_moves = get_valid_moves(board)
+    valid_moves = env.get_valid_moves(board)
 
-    # no moves left
-    if depth == 0 or len(valid_moves) == 0:
+    # Terminal search depth or no moves available
+    if depth == 0 or not valid_moves:
         return evaluate_position(board, player), None
 
-    # Check immediate win
+    # Immediate win check
     for move in valid_moves:
-        new_board = drop_piece(board, move, player)
-        if check_win(new_board, player, env):
-            return (10**6, move)
+        new_board = env.drop_piece(board, move, player)
+        if _win_on_board(new_board, player, env):
+            return 10**6, move
 
     best_score = -float("inf")
     best_move = None
 
     for move in valid_moves:
-        new_board = drop_piece(board, move, player)
+        new_board = env.drop_piece(board, move, player)
 
-        # Opponent move: score is negated (negamax)
+        # Opponent search (negamax)
         score, _ = minimax(new_board, depth - 1, -beta, -alpha, -player, env)
         score = -score
 
@@ -108,14 +87,23 @@ def minimax(board, depth, alpha, beta, player, env):
             best_score = score
             best_move = move
 
-        # pruning
         alpha = max(alpha, score)
         if alpha >= beta:
-            break
+            break  # prune branch
 
     return best_score, best_move
 
 
+# Check win on a hypothetical board without breaking environment state
+def _win_on_board(board, player, env):
+    saved = env.board
+    env.board = board
+    result = env._check_win(player)
+    env.board = saved
+    return result
+
+
+# Choose move entry point
 def choose_best_move(env, depth=5):
     board = env.board.copy()
     player = env.current_player
@@ -123,11 +111,11 @@ def choose_best_move(env, depth=5):
     return move
 
 
-env = Connect4Env()
+env = Connect4Env(render=True, wait_time=500)
 state, info = env.reset()
+env.render()
 
 while True:
-    # Minimax chooses action
     action = choose_best_move(env, depth=5)
     print("AI chooses:", action)
 

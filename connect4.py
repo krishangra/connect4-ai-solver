@@ -6,7 +6,7 @@ import pygame
 class Connect4Env(gym.Env):
     """Gymnasium-compatible Connect 4 environment."""
 
-    def __init__(self, render=False):
+    def __init__(self, render=False, wait_time=250):
         super().__init__()
 
         self.BLUE = (0, 0, 255)
@@ -15,6 +15,7 @@ class Connect4Env(gym.Env):
         self.YELLOW = (255, 255, 0)
 
         self.render_mode = render
+        self.wait_time = wait_time
         self.pygame_initialized = False
         self.rows = 6
         self.cols = 7
@@ -38,8 +39,10 @@ class Connect4Env(gym.Env):
         return self.board.copy(), {}
     
     # get valid moves at the current state
-    def get_valid_moves(self):
-        return [c for c in range(self.cols) if self.board[0][c] == 0]
+    def get_valid_moves(self, board=None):
+        if board is None:
+            board = self.board
+        return [c for c in range(self.cols) if board[0][c] == 0]
 
 
     def drop_piece(self, board, col, player):
@@ -167,9 +170,12 @@ class Connect4Env(gym.Env):
 
         pygame.display.update()
 
+        if self.wait_time > 0:
+            pygame.time.wait(self.wait_time)
+
 # Example usage
 if __name__ == "__main__":
-    env = Connect4Env(render=True)
+    env = Connect4Env(render=True, wait_time=500)
     s, _ = env.reset()
 
     pygame.time.wait(5000)
@@ -178,4 +184,3 @@ if __name__ == "__main__":
     while not done:
         action = np.random.choice(env.get_valid_moves())
         s, r, done, _, info = env.step(action)
-        pygame.time.wait(500)
