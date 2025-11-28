@@ -81,11 +81,10 @@ def board_score(board, player):
     opp = -player
     score = 0
 
-    # weights you can tweak
     AG_THREE  = 50
     AG_TWO    = 5
     AG_ONE    = 1
-    OPP_THREE = -40   # blocking them is also important
+    OPP_THREE = -40   # blocking opponent is also important
     OPP_TWO   = -4
 
     directions = [
@@ -98,7 +97,7 @@ def board_score(board, player):
     for dr, dc in directions:
         for r in range(rows):
             for c in range(cols):
-                # starting point must allow a length-4 window
+                # starting point must allow a length-4 window (makes this process easier)
                 r_end = r + 3 * dr
                 c_end = c + 3 * dc
                 if not (0 <= r_end < rows and 0 <= c_end < cols):
@@ -108,7 +107,7 @@ def board_score(board, player):
                 count_p = sum(1 for v in window if v == player)
                 count_o = sum(1 for v in window if v == opp)
 
-                # mixed window: both players present, ignore
+                # mixed window: both players present so just ignore
                 if count_p > 0 and count_o > 0:
                     continue
 
@@ -167,7 +166,7 @@ def choose_smart_move(board, valid_moves, player):
     return random.choice(best_cols)
 
 def train_rl_agent(num_episodes, gamma, epsilon, decay_rate):
-    env = Connect4Env()
+    env = Connect4Env(render=False, wait_time=0, game_mode='ai')
     Q_table = {}
     update_count_qsa = {}
     num_of_actions = 7 #7 columns
@@ -338,7 +337,10 @@ class RLAgent:
         if state in self.Q_table:
             q_opt = self.Q_table[state]
         else:
-            q_opt = np.zeros(7, dtype=float)
+            q_opt = None
+        
+        if q_opt is None or np.allclose(q_opt, 0.0):
+            return int(np.random.choice(valid_moves))
         
         mask = np.full(7, -1e9)
         mask[valid_moves] = 0.0

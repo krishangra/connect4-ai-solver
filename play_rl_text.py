@@ -3,15 +3,16 @@ from connect4 import Connect4Env
 from rl_agent import RLAgent
 from rl_agent import train_rl_agent
 import pickle
-while True:
-    print("Enter 1-4 to play one of the agents:\n")
-    print("1. Minimax + Alpha-Beta")
-    print("2. Reinforcement Learning")
-    print("3. Monte Carlo Tree Search")
-    print("4. Deterministic Search")
-    agentNum = int(input())
-    if 1 <= agentNum <= 4:
-        break
+# while True:
+#     print("Enter 1-4 to play one of the agents:\n")
+#     print("1. Minimax + Alpha-Beta")
+#     print("2. Reinforcement Learning")
+#     print("3. Monte Carlo Tree Search")
+#     print("4. Deterministic Search")
+#     agentNum = int(input())
+#     if 1 <= agentNum <= 4:
+#         break
+agentNum = 2
 
 if agentNum == 2:
     num_episodes = 10000
@@ -20,7 +21,7 @@ if agentNum == 2:
     # with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'.pickle', 'wb') as handle:
     #     pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
     filename = 'Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'.pickle'
-    env = Connect4Env()
+    env = Connect4Env(render=False, wait_time=0, game_mode="human vs ai")
     try:
         with open(filename, "rb") as f:
             obj = pickle.load(f)
@@ -50,5 +51,3 @@ if agentNum == 2:
         print("Player Wins")
     elif info.get("draw"):
         print("Draw")
-        
-    
