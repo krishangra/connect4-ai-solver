@@ -9,7 +9,7 @@ Q_TABLE_PATH = "Q_table_10000_0.9999.pickle"
 
 # In training, the agent was "1" and the opponent was -1
 HUMAN = -1
-AI    = 1
+AI = 1
 
 
 def load_agent(q_table_path: str) -> RLAgent:
