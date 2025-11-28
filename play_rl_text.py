@@ -21,7 +21,7 @@ if agentNum == 2:
     # Q_table = train_rl_agent(num_episodes=num_episodes, gamma=0.9, epsilon=1, decay_rate=decay_rate)
     # with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'.pickle', 'wb') as handle:
     #     pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    filename = 'Q_table_'+str(num_episodes)+'_'+str(decay_rate)+the_opp+'.pickle'
+    filename = 'Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'_'+the_opp+'.pickle'
     env = Connect4Env(render=False, wait_time=0, game_mode="human vs ai")
     try:
         with open(filename, "rb") as f:

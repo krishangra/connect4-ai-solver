@@ -15,11 +15,15 @@ def evaluate_agent(filename, episodes=10000):
         print("File doesn't exist")
     
     agent = RLAgent(Q_table)
-    wins = 0
-    losses = 0
-    draws = 0
     op_type = ["random", "heuristic opponent"]
     for i in range(2):
+        wins = 0
+        losses = 0
+        draws = 0
+        if i == 0:
+            print("AI Agent vs. Random Opponent:")
+        else:
+            print("AI Agent vs. Smarter Opponent:")
         for episode in tqdm(range(episodes)):
             obs, info = env.reset()
             done = False
@@ -50,12 +54,12 @@ def evaluate_agent(filename, episodes=10000):
         print(f"Draws: {draws}")
         print(f"% Win Rate: {round(float(wins/(wins+losses+draws))*100, 2)}%")
         print("=======================================")
-
-num_episodes=500000
-decay_rate=0.999999
-the_opp='random_opp'
-Q_table = train_rl_agent(num_episodes=num_episodes, gamma=0.9, epsilon=1, decay_rate=decay_rate, opp_type=1)
-with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+the_opp+'.pickle', 'wb') as handle:
-    pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
-filename = 'Q_table_'+str(num_episodes)+'_'+str(decay_rate)+the_opp+'.pickle'
-evaluate_agent(filename, episodes=10000)
+if __name__ == "__main__":
+    num_episodes=500000
+    decay_rate=0.999999
+    the_opp='random_opp'
+    # Q_table = train_rl_agent(num_episodes=num_episodes, gamma=0.9, epsilon=1, decay_rate=decay_rate, opp_type=1)
+    # with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+the_opp+'.pickle', 'wb') as handle:
+    #     pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    filename = 'Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'_'+the_opp+'.pickle'
+    evaluate_agent(filename, episodes=10000)

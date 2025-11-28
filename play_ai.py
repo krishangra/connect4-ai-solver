@@ -31,9 +31,9 @@ while True:
         env.render()
         if "winner" in info:
             if info["winner"] == HUMAN:
-                print("🎉 Human wins!")
+                print("Human wins!")
             else:
-                print("🤖 AI wins!")
+                print("AI wins!")
         else:
             print("Draw.")
         break

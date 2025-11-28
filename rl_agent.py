@@ -282,7 +282,7 @@ class RLAgent:
 if __name__== "__main__":
     num_episodes=10000
     decay_rate=0.9999
-    opp_type = 1
+    opp_type = 2
     if opp_type == 1:
         the_opp = "random_opp"
     else:
