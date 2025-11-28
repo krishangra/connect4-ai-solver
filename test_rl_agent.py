@@ -55,11 +55,20 @@ def evaluate_agent(filename, episodes=10000):
         print(f"% Win Rate: {round(float(wins/(wins+losses+draws))*100, 2)}%")
         print("=======================================")
 if __name__ == "__main__":
-    num_episodes=500000
-    decay_rate=0.999999
+    # num_episodes=[10000, 100000, 500000]
+    # decay_rate=[0.9999, 0.99999, 0.999999]
+    # the_opp='both_opp'
+    # for i in range(len(num_episodes)):
+    #     Q_table = train_rl_agent(num_episodes=num_episodes[i], gamma=0.9, epsilon=1, decay_rate=decay_rate[i], opp_type=3)
+    #     with open('Q_table_'+str(num_episodes[i])+'_'+str(decay_rate[i])+'_'+the_opp+'.pickle', 'wb') as handle:
+    #         pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     filename = 'Q_table_'+str(num_episodes[i])+'_'+str(decay_rate[i])+'_'+the_opp+'.pickle'
+    #     evaluate_agent(filename, episodes=10000)
+    num_episodes = 100000
+    decay_rate = 0.99999
     the_opp='random_opp'
-    # Q_table = train_rl_agent(num_episodes=num_episodes, gamma=0.9, epsilon=1, decay_rate=decay_rate, opp_type=1)
-    # with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+the_opp+'.pickle', 'wb') as handle:
+    # Q_table = train_rl_agent(num_episodes=num_episodes[i], gamma=0.9, epsilon=1, decay_rate=decay_rate[i], opp_type=3)
+    # with open('Q_table_'+str(num_episodes[i])+'_'+str(decay_rate[i])+'_'+the_opp+'.pickle', 'wb') as handle:
     #     pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
     filename = 'Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'_'+the_opp+'.pickle'
     evaluate_agent(filename, episodes=10000)
