@@ -124,6 +124,39 @@ def immediate_win_or_block(board, player, env):
     return None
 
 
+def avoid_immediate_loss(board, player, env):
+    """
+    Remove any move that allows the opponent to win immediately next turn.
+    Returns a filtered list of safe moves. If all moves lose immediately,
+    return all moves (must choose something).
+    """
+
+    valid_moves = env.get_valid_moves(board)
+    opponent = -player
+
+    safe_moves = []
+
+    for move in valid_moves:
+        # Pretend player makes this move
+        new_board = env.drop_piece(board, move, player)
+
+        # Now check all opponent replies
+        opp_valid = env.get_valid_moves(new_board)
+        opponent_can_win = False
+
+        for opp_move in opp_valid:
+            opp_board = env.drop_piece(new_board, opp_move, opponent)
+            if _win_on_board(opp_board, opponent, env):
+                opponent_can_win = True
+                break
+
+        if not opponent_can_win:
+            safe_moves.append(move)
+
+    # If every move loses immediately, we must pick one – return all
+    return safe_moves if safe_moves else valid_moves
+
+
 # Updated choose_best_move with immediate win/block logic
 def choose_best_move(env, depth=5):
     board = env.board.copy()
@@ -133,11 +166,26 @@ def choose_best_move(env, depth=5):
     move = immediate_win_or_block(board, player, env)
     if move is not None:
         return move
+    
+    safe_moves = avoid_immediate_loss(board, player, env)
+    if len(safe_moves) == 1:
+        return safe_moves[0]
 
-    # Otherwise, use depth-limited minimax
-    _, move = minimax(board, depth, -float("inf"), float("inf"), player, env)
-    return move
+    best_score = -float("inf")
+    best_move = None
 
+    for move in safe_moves:
+        new_board = env.drop_piece(board, move, player)
+        score, _ = minimax(new_board, depth - 1,
+                           -float("inf"), float("inf"),
+                           -player, env)
+        score = -score
+
+        if score > best_score:
+            best_score = score
+            best_move = move
+
+    return best_move
 
 
 if __name__ == "__main__":

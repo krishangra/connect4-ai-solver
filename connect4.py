@@ -68,12 +68,15 @@ class Connect4Env(gym.Env):
         if self._check_win(self.current_player):
             if self.render_mode:
                 self.render()
+                winner = "Player 1 Wins!" if self.current_player == 1 else "Player 2 Wins!"
+                self._render_end_screen(winner)
             return self.board.copy(), 1.0, True, False, {"winner": self.current_player}
 
         # Draw check
         if len(self.get_valid_moves()) == 0:
             if self.render_mode:
                 self.render()
+                self._render_end_screen("Draw!")
             return self.board.copy(), 0.0, True, False, {"draw": True}
 
         # Switch player turn
@@ -193,6 +196,25 @@ class Connect4Env(gym.Env):
 
         if self.wait_time > 0:
             pygame.time.wait(self.wait_time)
+
+
+    def _render_end_screen(self, message):
+        """Show final end-game message on screen."""
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))  # dark transparent overlay
+        self.screen.blit(overlay, (0,0))
+
+        font = pygame.font.SysFont("Times New Roman", 60, bold=True)
+        text = font.render(message, True, (255, 255, 255))
+        rect = text.get_rect(center=(self.width // 2, self.height // 2))
+        self.screen.blit(text, rect)
+
+        pygame.display.update()
+
+        # Pause so the player can read it
+        pygame.time.wait(10000)
+
 
 # Example usage
 if __name__ == "__main__":
