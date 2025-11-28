@@ -5,7 +5,7 @@ from connect4 import Connect4Env
 from rl_agent import RLAgent
 
 # trained Q-table file
-Q_TABLE_PATH = "Q_table_10000_0.9999.pickle"
+Q_TABLE_PATH = "Q_table_500000_0.999999_smarter_opp.pickle"
 
 # In training, the agent was "1" and the opponent was -1
 HUMAN = -1

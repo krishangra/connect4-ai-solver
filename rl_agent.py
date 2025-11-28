@@ -140,7 +140,7 @@ def choose_smart_move(board, valid_moves, player):
     # 5) choose one of the best moves calculated from 3 randomly
     return random.choice(best_cols)
 
-def train_rl_agent(num_episodes, gamma, epsilon, decay_rate):
+def train_rl_agent(num_episodes, gamma, epsilon, decay_rate, opp_type):
     env = Connect4Env(render=False, wait_time=0, game_mode='ai')
     Q_table = {}
     update_count_qsa = {}
@@ -199,7 +199,10 @@ def train_rl_agent(num_episodes, gamma, epsilon, decay_rate):
                             agent_reward = 0.0
                             done = True
                         else:
-                            opp_action = choose_smart_move(env.board, opp_valid, env.current_player) # plays against itself (random moves)
+                            if opp_type == 1:
+                                opp_action = random.choice(opp_valid)
+                            else:
+                                opp_action = choose_smart_move(env.board, opp_valid, env.current_player) # plays against itself (random moves)
                             next_obs, reward2, term2, trunc2, info2 = env.step(opp_action)
                             done = term2 or trunc2
                             if done:
@@ -234,7 +237,10 @@ def train_rl_agent(num_episodes, gamma, epsilon, decay_rate):
                 if len(valid_moves) == 0:
                     done = True
                     break
-                opp_action = choose_smart_move(env.board, valid_moves, env.current_player)
+                if opp_type == 1:
+                    opp_action = random.choice(valid_moves)
+                else:
+                    opp_action = choose_smart_move(env.board, valid_moves, env.current_player)
                 next_obs, reward, term, trunc, info = env.step(opp_action)
                 done = term or trunc
                 if done:
@@ -276,8 +282,13 @@ class RLAgent:
 if __name__== "__main__":
     num_episodes=10000
     decay_rate=0.9999
-    Q_table = train_rl_agent(num_episodes=num_episodes, gamma=0.9, epsilon=1, decay_rate=decay_rate)
-    with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'.pickle', 'wb') as handle:
+    opp_type = 1
+    if opp_type == 1:
+        the_opp = "random_opp"
+    else:
+        the_opp = "smarter_opp"
+    Q_table = train_rl_agent(num_episodes=num_episodes, gamma=0.9, epsilon=1, decay_rate=decay_rate, opp_type=opp_type)
+    with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'_'+the_opp+'.pickle', 'wb') as handle:
         pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # some of the old cnn code which didn't work because
