@@ -199,12 +199,7 @@ def train_rl_agent(num_episodes, gamma, epsilon, decay_rate, opp_type):
                             agent_reward = 0.0
                             done = True
                         else:
-                            if opp_type == 3:
-                                if np.random.rand() < 0.5:
-                                    opp_action = random.choice(opp_valid)
-                                else:
-                                    opp_action = choose_smart_move(env.board, opp_valid, env.current_player)
-                            elif opp_type == 1:
+                            if opp_type == 1:
                                 opp_action = random.choice(opp_valid)
                             else:
                                 opp_action = choose_smart_move(env.board, opp_valid, env.current_player) # plays against itself (random moves)
@@ -242,12 +237,7 @@ def train_rl_agent(num_episodes, gamma, epsilon, decay_rate, opp_type):
                 if len(valid_moves) == 0:
                     done = True
                     break
-                if opp_type == 3:
-                    if np.random.rand() < 0.5:
-                        opp_action = random.choice(opp_valid)
-                    else:
-                        opp_action = choose_smart_move(env.board, opp_valid, env.current_player)
-                elif opp_type == 1:
+                if opp_type == 1:
                     opp_action = random.choice(valid_moves)
                 else:
                     opp_action = choose_smart_move(env.board, valid_moves, env.current_player)
@@ -297,8 +287,6 @@ if __name__== "__main__":
         the_opp = "random_opp"
     elif opp_type == 2:
         the_opp = "smarter_opp"
-    else:
-        the_opp = "both_opp"
     Q_table = train_rl_agent(num_episodes=num_episodes, gamma=0.9, epsilon=1, decay_rate=decay_rate, opp_type=opp_type)
     with open('Q_table_'+str(num_episodes)+'_'+str(decay_rate)+'_'+the_opp+'.pickle', 'wb') as handle:
         pickle.dump(Q_table, handle, protocol=pickle.HIGHEST_PROTOCOL)
