@@ -113,7 +113,7 @@ class MCTSNode:
         return max(self.children.values(), key=lambda c: c.visits)
 
 class MCTS:
-    def __init__(self, num_simulations=1000, exploration=1.414):
+    def __init__(self, num_simulations=500, exploration=0.5):
         self.num_simulations = num_simulations
         self.exploration = exploration
     
