@@ -3,9 +3,9 @@ from connect4 import Connect4Env
 
 WIN_SCORE = 10**9
 FORCED_WIN_BONUS = 10**6
-OPEN3_SCORE = 50   # stronger than 5 from earlier
-OPEN2_SCORE = 10   # stronger than 2 from earlier
-CENTER_BONUS = 3   # small bias for center column
+OPEN3_SCORE = 50
+OPEN2_SCORE = 10
+CENTER_BONUS = 3
 MAX_NEG = -1e18
 
 def get_valid_moves(board):
