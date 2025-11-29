@@ -1,86 +1,173 @@
 import numpy as np
-import gymnasium as gym
 from connect4 import Connect4Env
 
+WIN_SCORE = 10**9
+FORCED_WIN_BONUS = 10**6
+OPEN3_SCORE = 50   # stronger than 5 from earlier
+OPEN2_SCORE = 10   # stronger than 2 from earlier
+CENTER_BONUS = 3   # small bias for center column
+MAX_NEG = -1e18
 
-# Heuristic evaluation function
-def evaluate_position(board, player):
-    """
-    Simple evaluation scoring:
-      +5 for each open 3-in-a-row,
-      +2 for open 2-in-a-row,
-      and symmetric negative values for opponent.
-    """
+def get_valid_moves(board):
+    return [c for c in range(board.shape[1]) if board[0, c] == 0]
 
-    def score_line(line):
-        score = 0
-        if np.count_nonzero(line == player) == 3 and np.count_nonzero(line == 0) == 1:
-            score += 5
-        if np.count_nonzero(line == player) == 2 and np.count_nonzero(line == 0) == 2:
-            score += 2
 
-        opp = -player
-        if np.count_nonzero(line == opp) == 3 and np.count_nonzero(line == 0) == 1:
-            score -= 5
-        if np.count_nonzero(line == opp) == 2 and np.count_nonzero(line == 0) == 2:
-            score -= 2
+def drop_piece(board, col, player):
+    new_board = board.copy()
+    rows = new_board.shape[0]
+    for r in range(rows - 1, -1, -1):
+        if new_board[r, col] == 0:
+            new_board[r, col] = player
+            return new_board
+    raise ValueError("drop_piece called on full column")
 
-        return score
 
+def check_win(board, player):
     rows, cols = board.shape
-    total = 0
 
     # Horizontal
     for r in range(rows):
         for c in range(cols - 3):
-            total += score_line(board[r, c:c+4])
+            if np.all(board[r, c:c+4] == player):
+                return True
 
     # Vertical
     for r in range(rows - 3):
         for c in range(cols):
-            total += score_line(board[r:r+4, c])
+            if np.all(board[r:r+4, c] == player):
+                return True
 
     # Diagonal down-right
     for r in range(rows - 3):
         for c in range(cols - 3):
-            total += score_line(np.array([board[r+i][c+i] for i in range(4)]))
+            if all(board[r+i, c+i] == player for i in range(4)):
+                return True
 
     # Diagonal up-right
     for r in range(3, rows):
         for c in range(cols - 3):
-            total += score_line(np.array([board[r-i][c+i] for i in range(4)]))
+            if all(board[r-i, c+i] == player for i in range(4)):
+                return True
 
-    return total
+    return False
 
 
-# Minimax (Negamax) with Alpha-Beta Pruning
-def minimax(board, depth, alpha, beta, player, env):
+def board_is_full(board):
+    return not (board == 0).any()
+
+
+# Heuristic function
+def evaluate_position(board, player):
     """
-    Negamax minimax.
-    player = 1 or -1
+    Pure evaluation function (no env calls):
+    - Rewards open 3-in-a-row with one empty end (higher)
+    - Rewards open 2-in-a-row with two empties (smaller)
+    - Penalizes symmetric opponent patterns
+    - Adds small center-column bias
+    - Adds huge bonus/penalty for immediate forced wins/losses (soft)
+    """
+    opp = -player
+    rows, cols = board.shape
+    score = 0
+
+    def score_line_segment(segment):
+        """Score a length-4 segment (numpy array)."""
+        s = 0
+        cnt_p = int(np.count_nonzero(segment == player))
+        cnt_o = int(np.count_nonzero(segment == opp))
+        cnt_e = int(np.count_nonzero(segment == 0))
+
+        # Only score if the segment is not already blocked for that player.
+        # For open3: exactly 3 of player's and 1 empty => good if not opponent nearby blocking ends
+        if cnt_p == 3 and cnt_e == 1:
+            s += OPEN3_SCORE
+        if cnt_p == 2 and cnt_e == 2:
+            s += OPEN2_SCORE
+
+        if cnt_o == 3 and cnt_e == 1:
+            s -= OPEN3_SCORE
+        if cnt_o == 2 and cnt_e == 2:
+            s -= OPEN2_SCORE
+
+        return s
+
+    # Evaluate all 4-length segments on board
+    # Horizontal
+    for r in range(rows):
+        for c in range(cols - 3):
+            seg = board[r, c:c+4]
+            score += score_line_segment(seg)
+
+    # Vertical
+    for r in range(rows - 3):
+        for c in range(cols):
+            seg = board[r:r+4, c]
+            score += score_line_segment(seg)
+
+    # Diagonals
+    for r in range(rows - 3):
+        for c in range(cols - 3):
+            seg = np.array([board[r+i, c+i] for i in range(4)])
+            score += score_line_segment(seg)
+
+    for r in range(3, rows):
+        for c in range(cols - 3):
+            seg = np.array([board[r-i, c+i] for i in range(4)])
+            score += score_line_segment(seg)
+
+    # Center column preference
+    center_col = cols // 2
+    center_count = int(np.count_nonzero(board[:, center_col] == player))
+    score += CENTER_BONUS * center_count
+
+    # Soft forced win / loss check: simulate single-step drops
+    valid_moves = get_valid_moves(board)
+    for m in valid_moves:
+        b2 = drop_piece(board, m, player)
+        if check_win(b2, player):
+            score += FORCED_WIN_BONUS
+
+    for m in valid_moves:
+        b2 = drop_piece(board, m, opp)
+        if check_win(b2, opp):
+            score -= FORCED_WIN_BONUS
+
+    return score
+
+
+# Minimax (Negamax) Search with Alpha-Beta pruning
+def minimax(board, depth, alpha, beta, player):
+    """
+    Negamax implementation with alpha-beta.
+    Operates on pure boards only (no env mutation).
     Returns (score, best_move)
     """
+    valid_moves = get_valid_moves(board)
 
-    valid_moves = env.get_valid_moves(board)
+    # check if player has already won on this board or opponent has won
+    if check_win(board, player):
+        return WIN_SCORE, None
+    if check_win(board, -player):
+        return -WIN_SCORE, None
 
-    # Terminal search depth or no moves available
-    if depth == 0 or not valid_moves:
+    # Draw
+    if depth == 0 or not valid_moves or board_is_full(board):
         return evaluate_position(board, player), None
-
-    # Immediate win check
-    for move in valid_moves:
-        new_board = env.drop_piece(board, move, player)
-        if _win_on_board(new_board, player, env):
-            return 10**6, move
 
     best_score = -float("inf")
     best_move = None
 
-    for move in valid_moves:
-        new_board = env.drop_piece(board, move, player)
+    # Move ordering --> try center-first to improve pruning
+    cols = board.shape[1]
+    center = cols // 2
+    # order moves by distance to center
+    ordered_moves = sorted(valid_moves, key=lambda c: abs(c - center))
 
-        # Opponent search (negamax)
-        score, _ = minimax(new_board, depth - 1, -beta, -alpha, -player, env)
+    for move in ordered_moves:
+        new_board = drop_piece(board, move, player)
+
+        # Recurse for opponent; negamax flip
+        score, _ = minimax(new_board, depth - 1, -beta, -alpha, -player)
         score = -score
 
         if score > best_score:
@@ -89,96 +176,35 @@ def minimax(board, depth, alpha, beta, player, env):
 
         alpha = max(alpha, score)
         if alpha >= beta:
-            break  # prune branch
+            break  # beta cutoff
 
     return best_score, best_move
 
 
-# Check win on a hypothetical board without breaking environment state
-def _win_on_board(board, player, env):
-    saved = env.board
-    env.board = board
-    result = env._check_win(player)
-    env.board = saved
-    return result
-
-
-# Immediate win or block check
-def immediate_win_or_block(board, player, env):
-    valid_moves = env.get_valid_moves(board)
-
-    # Check if current player can win immediately
-    for move in valid_moves:
-        new_board = env.drop_piece(board, move, player)
-        if _win_on_board(new_board, player, env):
-            return move
-
-    # Check if opponent can win next move; block them
-    opponent = -player
-    for move in valid_moves:
-        new_board = env.drop_piece(board, move, opponent)
-        if _win_on_board(new_board, opponent, env):
-            return move
-
-    # No immediate win or block
-    return None
-
-
-def avoid_immediate_loss(board, player, env):
+# Top-level chooser that uses the environment only for state read
+def choose_best_move(env, depth=6):
     """
-    Remove any move that allows the opponent to win immediately next turn.
-    Returns a filtered list of safe moves. If all moves lose immediately,
-    return all moves (must choose something).
+    Returns best column index for current env state.
+    Uses pure board minimax; uses env only to read current board and current_player.
     """
-
-    valid_moves = env.get_valid_moves(board)
-    opponent = -player
-
-    safe_moves = []
-
-    for move in valid_moves:
-        # Pretend player makes this move
-        new_board = env.drop_piece(board, move, player)
-
-        # Now check all opponent replies
-        opp_valid = env.get_valid_moves(new_board)
-        opponent_can_win = False
-
-        for opp_move in opp_valid:
-            opp_board = env.drop_piece(new_board, opp_move, opponent)
-            if _win_on_board(opp_board, opponent, env):
-                opponent_can_win = True
-                break
-
-        if not opponent_can_win:
-            safe_moves.append(move)
-
-    # If every move loses immediately, we must pick one – return all
-    return safe_moves if safe_moves else valid_moves
-
-
-# Updated choose_best_move with immediate win/block logic
-def choose_best_move(env, depth=5):
     board = env.board.copy()
     player = env.current_player
 
-    # First check immediate win or block
-    move = immediate_win_or_block(board, player, env)
-    if move is not None:
-        return move
-    
-    safe_moves = avoid_immediate_loss(board, player, env)
-    if len(safe_moves) == 1:
-        return safe_moves[0]
+    valid_moves = get_valid_moves(board)
+    if not valid_moves:
+        return None
 
     best_score = -float("inf")
     best_move = None
 
-    for move in safe_moves:
-        new_board = env.drop_piece(board, move, player)
-        score, _ = minimax(new_board, depth - 1,
-                           -float("inf"), float("inf"),
-                           -player, env)
+    # order moves center-first for quick pruning
+    cols = board.shape[1]
+    center = cols // 2
+    ordered_moves = sorted(valid_moves, key=lambda c: abs(c - center))
+
+    for move in ordered_moves:
+        new_board = drop_piece(board, move, player)
+        score, _ = minimax(new_board, depth - 1, -float("inf"), float("inf"), -player)
         score = -score
 
         if score > best_score:
@@ -188,26 +214,32 @@ def choose_best_move(env, depth=5):
     return best_move
 
 
+# example
 if __name__ == "__main__":
-    env = Connect4Env(render=True, wait_time=500)
-    state, info = env.reset()
+    env = Connect4Env(render=True, wait_time=300)
+    state, _ = env.reset()
     env.render()
 
-    total_reward = {1: 0.0, -1: 0.0}
     total_steps = {1: 0, -1: 0}
-    moves = [] 
+    moves = []
 
     while True:
         mover = env.current_player
-        action = choose_best_move(env, depth=5)
-        print(f"Player {mover} chooses:", action)
 
+        if env.game_mode == "human_vs_ai" and mover == 1:
+            action = env.get_human_move()
+        else:
+            action = choose_best_move(env, depth=6)
+
+        if action is None:
+            print("No valid moves left.")
+            break
+
+        print(f"Player {mover} chooses: {action}")
         state, reward, terminated, truncated, info = env.step(action)
 
-        # accumulate
-        total_reward[mover] += float(reward)
         total_steps[mover] += 1
-        moves.append((mover, action, float(reward)))
+        moves.append((mover, action))
 
         env.render()
         print(state)
@@ -216,11 +248,8 @@ if __name__ == "__main__":
             print("Game over:", info)
             break
 
-    # summary
-    def avg(r, n):
-        return (r / n) if n > 0 else 0.0
-
+    # Summary
     print("\n=== GAME METRICS ===")
     print(f"Total moves: {total_steps[1] + total_steps[-1]}")
-    print(f"Player 1 -> Steps: {total_steps[1]}\nPlayer 2 -> Steps: {total_steps[-1]}")
-
+    print(f"Player 1 -> Steps: {total_steps[1]}")
+    print(f"Player 2 -> Steps: {total_steps[-1]}")

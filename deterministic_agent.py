@@ -15,7 +15,7 @@ class DeterministicAgent:
         # temporarily assign the board for check_win
         saved = self.env.board
         self.env.board = new_board
-        win = self.env._check_win(player)
+        win = self.env.check_win(player)
         self.env.board = saved
         return win
       
@@ -30,7 +30,7 @@ class DeterministicAgent:
 
             saved = self.env.board
             self.env.board = opp_board
-            opp_wins = self.env._check_win(opponent)
+            opp_wins = self.env.check_win(opponent)
             self.env.board = saved
 
             if opp_wins:

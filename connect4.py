@@ -65,7 +65,7 @@ class Connect4Env(gym.Env):
         self.board = self.drop_piece(self.board, action, self.current_player)
 
         # Win check
-        if self._check_win(self.current_player):
+        if self.check_win(self.current_player):
             if self.render_mode:
                 self.render()
                 winner = "Player 1 Wins!" if self.current_player == 1 else "Player 2 Wins!"
@@ -89,7 +89,7 @@ class Connect4Env(gym.Env):
         return self.board.copy(), 0.0, False, False, {}
 
     # Win detection
-    def _check_win(self, p):
+    def check_win(self, p):
         b = self.board
 
         # Horizontal
@@ -202,7 +202,7 @@ class Connect4Env(gym.Env):
         """Show final end-game message on screen."""
         overlay = pygame.Surface((self.width, self.height))
         overlay.set_alpha(180)
-        overlay.fill((0, 0, 0))  # dark transparent overlay
+        overlay.fill((0, 0, 0)) 
         self.screen.blit(overlay, (0,0))
 
         font = pygame.font.SysFont("Times New Roman", 60, bold=True)
@@ -212,7 +212,6 @@ class Connect4Env(gym.Env):
 
         pygame.display.update()
 
-        # Pause so the player can read it
         pygame.time.wait(10000)
 
 
