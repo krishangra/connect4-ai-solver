@@ -3,216 +3,200 @@ import math
 import random
 from connect4 import Connect4Env
 
+ROWS = 6
+COLS = 7
+MOVE_ORDER = [3, 2, 4, 1, 5, 0, 6]
+
+def board_to_bitboards(board):
+    p1 = 0
+    p2 = 0
+    heights = [0] * COLS
+    for c in range(COLS):
+        for r in range(ROWS - 1, -1, -1):
+            if board[r][c] != 0:
+                bit = 1 << (c * 7 + (ROWS - 1 - r))
+                if board[r][c] == 1:
+                    p1 |= bit
+                else:
+                    p2 |= bit
+                heights[c] = ROWS - r
+    return p1, p2, heights
+
+def bitboards_to_board(p1, p2):
+    board = np.zeros((ROWS, COLS), dtype=np.int8)
+    for c in range(COLS):
+        for r in range(ROWS):
+            bit = 1 << (c * 7 + (ROWS - 1 - r))
+            if p1 & bit:
+                board[r][c] = 1
+            elif p2 & bit:
+                board[r][c] = -1
+    return board
+
+def check_win_bitboard(bitboard):
+    directions = [1, 7, 6, 8]
+    for d in directions:
+        bb = bitboard & (bitboard >> d)
+        if bb & (bb >> (2 * d)):
+            return True
+    return False
+
+def drop_piece_bitboard(p1, p2, heights, col, player):
+    if heights[col] >= ROWS:
+        return None, None, None
+    row = heights[col]
+    bit = 1 << (col * 7 + row)
+    new_heights = heights.copy()
+    new_heights[col] += 1
+    if player == 1:
+        return p1 | bit, p2, new_heights
+    else:
+        return p1, p2 | bit, new_heights
+
+def get_valid_moves_bitboard(heights):
+    return [c for c in MOVE_ORDER if heights[c] < ROWS]
+
 class MCTSNode:
-    """
-    A node in the MCTS search tree.
+    __slots__ = ['p1', 'p2', 'heights', 'player', 'parent', 'move', 'children', 
+                 'visits', 'wins', 'untried_moves', 'is_terminal_cached', 'winner_cached']
     
-    Attributes:
-        board: Current board state (numpy array)
-        player: Player who will move from this state (1 or -1)
-        parent: Parent node reference (None for root)
-        children: Dict mapping move -> child MCTSNode
-        visits: Number of times this node was visited
-        wins: Cumulative score from this node's perspective
-        untried_moves: List of moves not yet expanded
-    """
-    
-    def __init__(self, board, player, parent=None, move=None):
-        self.board = board.copy()
+    def __init__(self, p1, p2, heights, player, parent=None, move=None):
+        self.p1 = p1
+        self.p2 = p2
+        self.heights = heights
         self.player = player
         self.parent = parent
         self.move = move
+        self.children = {}
         self.visits = 0
         self.wins = 0.0
-        self.children = {}
-        self.untried_moves = self._get_valid_moves()
+        self.is_terminal_cached = None
+        self.winner_cached = None
+        self._compute_terminal()
+        if self.is_terminal_cached:
+            self.untried_moves = []
+        else:
+            self.untried_moves = get_valid_moves_bitboard(heights)
     
-    def _get_valid_moves(self):
-        """Get list of valid moves (non-full columns)."""
-        if self._is_terminal():
-            return []
-        return [c for c in range(7) if self.board[0][c] == 0]
-    
-    def _is_terminal(self):
-        """Check if this is a terminal state (if win or a draw))."""
-        return (self._check_winner(1) or 
-                self._check_winner(-1) or 
-                len([c for c in range(7) if self.board[0][c] == 0]) == 0)
-    
-    def _check_winner(self, p):
-        """Check if player p has won."""
-        b = self.board
-        rows, cols = 6, 7
-        
-        for r in range(rows):
-            for c in range(cols - 3):
-                if np.all(b[r, c:c+4] == p):
-                    return True
-        for r in range(rows - 3):
-            for c in range(cols):
-                if np.all(b[r:r+4, c] == p):
-                    return True
-        for r in range(rows - 3):
-            for c in range(cols - 3):
-                if all(b[r+i][c+i] == p for i in range(4)):
-                    return True
-        for r in range(3, rows):
-            for c in range(cols - 3):
-                if all(b[r-i][c+i] == p for i in range(4)):
-                    return True
-        return False
+    def _compute_terminal(self):
+        if check_win_bitboard(self.p1):
+            self.is_terminal_cached = True
+            self.winner_cached = 1
+        elif check_win_bitboard(self.p2):
+            self.is_terminal_cached = True
+            self.winner_cached = -1
+        elif all(h >= ROWS for h in self.heights):
+            self.is_terminal_cached = True
+            self.winner_cached = 0
+        else:
+            self.is_terminal_cached = False
+            self.winner_cached = None
     
     def is_fully_expanded(self):
-        """Check if all moves have been tried."""
         return len(self.untried_moves) == 0
     
     def is_terminal(self):
-        """Public method to check terminal state."""
-        return self._is_terminal()
+        return self.is_terminal_cached
     
     def get_winner(self):
-        """Return winner (1, -1) or None for draw or ongoing."""
-        if self._check_winner(1):
-            return 1
-        if self._check_winner(-1):
-            return -1
-        return None
+        return self.winner_cached
     
-    def ucb1(self, exploration=1.414):
-        """
-        Calculate UCB1 score for node selection.
-        
-        UCB1 = win_rate + C * sqrt(ln(parent_visits) / visits)
-        """
+    def ucb1(self, exploration):
         if self.visits == 0:
             return float('inf')
-        
-        exploitation = self.wins / self.visits
-        exploration_term = exploration * math.sqrt(
-            math.log(self.parent.visits) / self.visits
-        )
-        return exploitation + exploration_term
+        return self.wins / self.visits + exploration * math.sqrt(math.log(self.parent.visits) / self.visits)
     
-    def best_child(self, exploration=1.414):
-        """Select child with highest UCB1 score."""
+    def best_child(self, exploration):
         return max(self.children.values(), key=lambda c: c.ucb1(exploration))
     
     def most_visited_child(self):
-        """Return the child with most visits (best move after search)."""
         return max(self.children.values(), key=lambda c: c.visits)
 
-
 class MCTS:
-    """
-    Monte Carlo Tree Search Algorithm.
-    
-    This algorithm has four phases:
-    1. Selection: Traverse tree using UCB1 until reach unexpanded node
-    2. Expansion: Add new child node for an untried move
-    3. Simulation: Play random moves until game ends
-    4. Backpropagation: Update stats and go back up the tree
-    """
-    
     def __init__(self, num_simulations=1000, exploration=1.414):
         self.num_simulations = num_simulations
         self.exploration = exploration
     
     def search(self, board, player):
-        """
-        Run MCTS from the given state and return the best move.
+        p1, p2, heights = board_to_bitboards(board)
+        root = MCTSNode(p1, p2, heights, player)
         
-        Args:
-            board: Current board state (6x7 numpy array)
-            player: Current player (1 or -1)
-            
-        Returns:
-            Best column to play (0-6)
-        """
-        # create root node
-        root = MCTSNode(board, player)
+        if root.is_terminal():
+            valid = get_valid_moves_bitboard(heights)
+            return valid[0] if valid else 0
+        
+        immediate = self._check_immediate_wins(p1, p2, heights, player)
+        if immediate is not None:
+            return immediate
         
         for _ in range(self.num_simulations):
             node = root
-            
-            # look for a node that isn't fully expanded
             while node.is_fully_expanded() and not node.is_terminal():
                 node = node.best_child(self.exploration)
-            
-            # if a node isn't terminal and has untried moves then expand the node
             if not node.is_terminal() and node.untried_moves:
                 node = self._expand(node)
-            
-            # rollout
             result = self._simulate(node)
-            
-            # update everything and then backup
             self._backpropagate(node, result, root.player)
         
-        # return the most visited child
-        best = root.most_visited_child()
-        return best.move
+        if not root.children:
+            valid = get_valid_moves_bitboard(heights)
+            return valid[0] if valid else 0
+        
+        return root.most_visited_child().move
+    
+    def _check_immediate_wins(self, p1, p2, heights, player):
+        valid_moves = get_valid_moves_bitboard(heights)
+        my_board = p1 if player == 1 else p2
+        opp_board = p2 if player == 1 else p1
+        
+        for col in valid_moves:
+            new_p1, new_p2, _ = drop_piece_bitboard(p1, p2, heights, col, player)
+            new_my = new_p1 if player == 1 else new_p2
+            if check_win_bitboard(new_my):
+                return col
+        for col in valid_moves:
+            new_p1, new_p2, _ = drop_piece_bitboard(p1, p2, heights, col, -player)
+            new_opp = new_p2 if player == 1 else new_p1
+            if check_win_bitboard(new_opp):
+                return col
+        
+        return None
     
     def _expand(self, node):
-        """
-        Add a new child node.
-        
-        Picks a random untried move, creates child node, returns it.
-        """
-        move = random.choice(node.untried_moves)
-        node.untried_moves.remove(move)
-        
-        new_board = self._drop_piece(node.board, move, node.player)
-        
-        child = MCTSNode(
-            board=new_board,
-            player=-node.player,
-            parent=node,
-            move=move
-        )
-        
+        move = node.untried_moves.pop(0)
+        new_p1, new_p2, new_heights = drop_piece_bitboard(node.p1, node.p2, node.heights, move, node.player)
+        child = MCTSNode(new_p1, new_p2, new_heights, -node.player, parent=node, move=move)
         node.children[move] = child
         return child
     
     def _simulate(self, node):
-        """
-        Random playout until game ends.
-        
-        Returns the winner (1, -1) or 0 for draw.
-        """
-        board = node.board.copy()
+        if node.is_terminal():
+            return node.get_winner()
+        p1, p2, heights = node.p1, node.p2, node.heights.copy()
         player = node.player
         
-        winner = self._get_winner(board)
-        if winner is not None:
-            return winner
-        
         while True:
-            valid_moves = [c for c in range(7) if board[0][c] == 0]
-            
-            if not valid_moves:
+            valid = [c for c in range(COLS) if heights[c] < ROWS]
+            if not valid:
                 return 0
-            
-            move = random.choice(valid_moves)
-            board = self._drop_piece(board, move, player)
-            
-            winner = self._get_winner(board)
-            if winner is not None:
-                return winner
+            col = random.choice(valid)
+            row = heights[col]
+            bit = 1 << (col * 7 + row)
+            heights[col] += 1
+            if player == 1:
+                p1 |= bit
+                if check_win_bitboard(p1):
+                    return 1
+            else:
+                p2 |= bit
+                if check_win_bitboard(p2):
+                    return -1
             
             player = -player
     
     def _backpropagate(self, node, result, root_player):
-        """
-        Update stats up the tree.
-        
-        Args:
-            node: Leaf node to start from
-            result: Game result (1, -1, or 0)
-            root_player: The player MCTS is finding moves for
-        """
         while node is not None:
             node.visits += 1
-            
             if node.parent is not None:
                 if result == -node.player:
                     node.wins += 1.0
@@ -223,57 +207,13 @@ class MCTS:
                     node.wins += 1.0
                 elif result == 0:
                     node.wins += 0.5
-            
             node = node.parent
-    
-    def _drop_piece(self, board, col, player):
-        """Drop a piece in the given column."""
-        new_board = board.copy()
-        for r in range(5, -1, -1):
-            if new_board[r][col] == 0:
-                new_board[r][col] = player
-                break
-        return new_board
-    
-    def _get_winner(self, board):
-        """Check for winner. Returns 1, -1, or None."""
-        for p in [1, -1]:
-            for r in range(6):
-                for c in range(4):
-                    if np.all(board[r, c:c+4] == p):
-                        return p
-            for r in range(3):
-                for c in range(7):
-                    if np.all(board[r:r+4, c] == p):
-                        return p
-            for r in range(3):
-                for c in range(4):
-                    if all(board[r+i][c+i] == p for i in range(4)):
-                        return p
-            for r in range(3, 6):
-                for c in range(4):
-                    if all(board[r-i][c+i] == p for i in range(4)):
-                        return p
-        return None
-
 
 def choose_best_move(env, num_simulations=1000):
-    """
-    Choose the best move for the current environment state.
-    
-    Args:
-        env: Connect4Env instance
-        num_simulations: Number of MCTS iterations
-        
-    Returns:
-        Best column to play (0-6)
-    """
     mcts = MCTS(num_simulations=num_simulations)
     return mcts.search(env.board.copy(), env.current_player)
 
-
 if __name__ == "__main__":
-    
     env = Connect4Env()
     state, info = env.reset()
     
@@ -286,7 +226,6 @@ if __name__ == "__main__":
         
         print(f"\nMove {move_num} - Player {player_symbol}")
         
-        # board
         for row in env.board:
             print(' '.join(symbols[cell] for cell in row))
         print('0 1 2 3 4 5 6')
