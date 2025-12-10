@@ -41,7 +41,7 @@ This project implements and evaluates four different AI agents for Connect 4. Ea
 
 ### Clone the Repository
 ```bash
-git clone 
+git clone # Preference-based HTTPS or SSH
 cd connect4-ai-solver
 ```
 
